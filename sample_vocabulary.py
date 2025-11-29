@@ -1,95 +1,125 @@
 """
-Sample C1-C2 English Vocabulary
-Run this script to populate the database with starter words.
+C1-C2 Level English Vocabulary
+Pre-loaded so the bot works immediately
 """
 
-import asyncio
-import database as db
-
-# C1-C2 Advanced English Vocabulary
-SAMPLE_WORDS = [
-    # Academic & Formal
+VOCABULARY = [
+    # Day 1
     {"word": "ubiquitous", "definition": "present, appearing, or found everywhere", "example": "Smartphones have become ubiquitous in modern society."},
-    {"word": "ephemeral", "definition": "lasting for a very short time", "example": "Fame can be ephemeral in the age of social media."},
-    {"word": "juxtapose", "definition": "place side by side for comparison or contrast", "example": "The artist juxtaposed light and darkness in her paintings."},
-    {"word": "paradigm", "definition": "a typical example or pattern of something", "example": "The discovery shifted the paradigm of scientific thinking."},
-    {"word": "quintessential", "definition": "representing the most perfect example of a quality", "example": "She is the quintessential professional—always prepared and courteous."},
-    {"word": "idiosyncratic", "definition": "peculiar or individual; distinctive", "example": "His idiosyncratic teaching style made him memorable."},
-    {"word": "commensurate", "definition": "corresponding in size or degree; proportionate", "example": "Her salary was commensurate with her experience."},
-    {"word": "convoluted", "definition": "extremely complex and difficult to follow", "example": "The legal document was so convoluted that we needed a lawyer."},
-    {"word": "esoteric", "definition": "intended for or understood by only a small group", "example": "The professor's lectures on quantum mechanics were quite esoteric."},
-    {"word": "sycophant", "definition": "a person who flatters someone important for personal gain", "example": "The CEO was surrounded by sycophants who agreed with everything he said."},
+    {"word": "ephemeral", "definition": "lasting for a very short time", "example": "Fame on social media is often ephemeral."},
+    {"word": "pragmatic", "definition": "dealing with things sensibly and realistically", "example": "We need a pragmatic approach to solve this problem."},
+    {"word": "eloquent", "definition": "fluent or persuasive in speaking or writing", "example": "She gave an eloquent speech that moved everyone."},
+    {"word": "meticulous", "definition": "showing great attention to detail", "example": "He was meticulous in his research."},
+    {"word": "ambiguous", "definition": "open to more than one interpretation", "example": "The contract language was ambiguous."},
+    {"word": "resilient", "definition": "able to recover quickly from difficulties", "example": "Children are remarkably resilient."},
+    {"word": "contemplate", "definition": "look at thoughtfully; think about", "example": "She sat contemplating her next move."},
+    {"word": "exacerbate", "definition": "make a problem worse", "example": "The drought exacerbated the food shortage."},
+    {"word": "inevitable", "definition": "certain to happen; unavoidable", "example": "Change is inevitable in life."},
+    {"word": "undermine", "definition": "weaken or damage gradually", "example": "His comments undermined her confidence."},
+    {"word": "paradox", "definition": "a seemingly contradictory statement that may be true", "example": "It's a paradox that the busiest people often have the most time."},
+    {"word": "profound", "definition": "very great or intense; deep", "example": "The book had a profound impact on me."},
+    {"word": "albeit", "definition": "although; even though", "example": "He accepted the job, albeit with some reservations."},
+    {"word": "nuance", "definition": "a subtle difference in meaning", "example": "She understood the nuances of the language."},
     
-    # Descriptive & Literary
-    {"word": "mellifluous", "definition": "sweet-sounding; pleasant to hear", "example": "Her mellifluous voice captivated the entire audience."},
-    {"word": "ineffable", "definition": "too great or extreme to be expressed in words", "example": "The beauty of the sunset was ineffable."},
-    {"word": "serendipitous", "definition": "occurring by chance in a happy way", "example": "Our meeting was completely serendipitous—we were both at the wrong address!"},
-    {"word": "surreptitious", "definition": "kept secret, especially because improper", "example": "He cast a surreptitious glance at his phone during the meeting."},
-    {"word": "perfunctory", "definition": "carried out without real interest or effort", "example": "His perfunctory apology did nothing to ease the tension."},
+    # Day 2
+    {"word": "intrinsic", "definition": "belonging naturally; essential", "example": "Curiosity is intrinsic to human nature."},
+    {"word": "compelling", "definition": "evoking interest or attention; convincing", "example": "She made a compelling argument."},
+    {"word": "scrutinize", "definition": "examine or inspect closely", "example": "The document was scrutinized for errors."},
+    {"word": "mitigate", "definition": "make less severe or serious", "example": "We need to mitigate the risks."},
+    {"word": "coherent", "definition": "logical and consistent", "example": "He struggled to form a coherent sentence."},
+    {"word": "derivative", "definition": "not original; based on something else", "example": "The movie felt derivative of earlier films."},
+    {"word": "arbitrary", "definition": "based on random choice rather than reason", "example": "The decision seemed arbitrary."},
+    {"word": "tangible", "definition": "clear and definite; real", "example": "We need tangible results."},
+    {"word": "complacent", "definition": "self-satisfied; uncritically content", "example": "Don't become complacent about your success."},
+    {"word": "volatile", "definition": "liable to change rapidly; unstable", "example": "The stock market is volatile."},
+    {"word": "substantiate", "definition": "provide evidence to support", "example": "Can you substantiate your claims?"},
+    {"word": "unprecedented", "definition": "never done or known before", "example": "We're facing unprecedented challenges."},
+    {"word": "pertinent", "definition": "relevant or applicable", "example": "That's a pertinent question."},
+    {"word": "discrepancy", "definition": "a difference between things that should be the same", "example": "There's a discrepancy in the accounts."},
+    {"word": "amalgamate", "definition": "combine or unite to form one", "example": "The two companies amalgamated."},
     
-    # Emotional & Psychological
-    {"word": "vicarious", "definition": "experienced through imaginative participation in another's experience", "example": "I get vicarious pleasure from watching travel documentaries."},
-    {"word": "cathartic", "definition": "providing psychological relief through expression of emotions", "example": "Writing in her journal was cathartic after the stressful day."},
-    {"word": "ambivalent", "definition": "having mixed feelings about something", "example": "She felt ambivalent about accepting the job offer abroad."},
-    {"word": "vindictive", "definition": "having a strong desire for revenge", "example": "His vindictive nature made him a difficult colleague."},
-    {"word": "benevolent", "definition": "well-meaning and kindly", "example": "The benevolent donor funded the entire scholarship program."},
+    # Day 3
+    {"word": "juxtapose", "definition": "place side by side for comparison", "example": "The film juxtaposes wealth and poverty."},
+    {"word": "convoluted", "definition": "extremely complex and difficult to follow", "example": "The plot was too convoluted."},
+    {"word": "inundate", "definition": "overwhelm with things to deal with", "example": "We were inundated with requests."},
+    {"word": "circumvent", "definition": "find a way around an obstacle", "example": "They tried to circumvent the rules."},
+    {"word": "corroborate", "definition": "confirm or give support to", "example": "The witness corroborated his story."},
+    {"word": "disseminate", "definition": "spread information widely", "example": "Social media helps disseminate news quickly."},
+    {"word": "proliferate", "definition": "increase rapidly in number", "example": "Fake news has proliferated online."},
+    {"word": "vindicate", "definition": "clear of blame; prove right", "example": "The evidence vindicated him completely."},
+    {"word": "extraneous", "definition": "irrelevant or unrelated", "example": "Remove any extraneous details."},
+    {"word": "rudimentary", "definition": "basic; not developed", "example": "He has only rudimentary knowledge."},
+    {"word": "stringent", "definition": "strict, precise, and demanding", "example": "They have stringent quality controls."},
+    {"word": "mundane", "definition": "lacking interest; ordinary", "example": "She was tired of mundane tasks."},
+    {"word": "sporadic", "definition": "occurring at irregular intervals", "example": "There were sporadic outbursts of violence."},
+    {"word": "tenuous", "definition": "very weak or slight", "example": "The connection seems tenuous."},
+    {"word": "viable", "definition": "capable of working successfully", "example": "Is this a viable solution?"},
     
-    # Business & Professional
-    {"word": "leverage", "definition": "use something to maximum advantage", "example": "We need to leverage our existing customer base for the new product launch."},
-    {"word": "synergy", "definition": "combined effect greater than individual effects", "example": "The merger created synergy between the two companies' strengths."},
-    {"word": "mitigate", "definition": "make less severe or serious", "example": "We took steps to mitigate the environmental impact of the project."},
-    {"word": "streamline", "definition": "make more efficient by simplifying", "example": "The new software will streamline our workflow significantly."},
-    {"word": "proliferate", "definition": "increase rapidly in number; multiply", "example": "Fake news tends to proliferate on social media platforms."},
+    # Day 4
+    {"word": "acquiesce", "definition": "accept something reluctantly without protest", "example": "She acquiesced to their demands."},
+    {"word": "belligerent", "definition": "hostile and aggressive", "example": "He became belligerent after drinking."},
+    {"word": "clandestine", "definition": "kept secret; done secretly", "example": "They held clandestine meetings."},
+    {"word": "denounce", "definition": "publicly declare to be wrong", "example": "They denounced the violence."},
+    {"word": "embellish", "definition": "make more attractive; exaggerate", "example": "He tends to embellish his stories."},
+    {"word": "fluctuate", "definition": "rise and fall irregularly", "example": "Prices fluctuate throughout the day."},
+    {"word": "gratuitous", "definition": "uncalled for; unnecessary", "example": "The film had gratuitous violence."},
+    {"word": "haphazard", "definition": "lacking organization or planning", "example": "The search was haphazard."},
+    {"word": "imminent", "definition": "about to happen", "example": "A storm is imminent."},
+    {"word": "judiciously", "definition": "with good judgment; wisely", "example": "Use your resources judiciously."},
+    {"word": "kindle", "definition": "arouse or inspire an emotion", "example": "The speech kindled hope."},
+    {"word": "lethargic", "definition": "lacking energy; sluggish", "example": "The heat made everyone lethargic."},
+    {"word": "mollify", "definition": "calm someone's anger", "example": "Nothing could mollify her."},
+    {"word": "nonchalant", "definition": "casually calm and relaxed", "example": "He seemed nonchalant about the results."},
+    {"word": "ostentatious", "definition": "designed to impress; showy", "example": "The mansion was ostentatious."},
     
-    # Abstract & Philosophical
-    {"word": "dichotomy", "definition": "a division into two contrasting things", "example": "There's a false dichotomy between economic growth and environmental protection."},
-    {"word": "zeitgeist", "definition": "the defining spirit or mood of a particular period", "example": "The film captured the zeitgeist of the 1990s perfectly."},
-    {"word": "nuance", "definition": "a subtle difference in meaning or expression", "example": "The translation failed to capture the nuances of the original text."},
-    {"word": "paradigm shift", "definition": "a fundamental change in approach or assumptions", "example": "Remote work has caused a paradigm shift in how we think about offices."},
-    {"word": "cognitive dissonance", "definition": "mental discomfort from holding contradictory beliefs", "example": "He experienced cognitive dissonance when his actions conflicted with his values."},
+    # Day 5
+    {"word": "palpable", "definition": "able to be touched or felt; obvious", "example": "The tension was palpable."},
+    {"word": "quintessential", "definition": "representing the perfect example", "example": "She's the quintessential professional."},
+    {"word": "repudiate", "definition": "refuse to accept; deny", "example": "He repudiated the accusations."},
+    {"word": "succinct", "definition": "briefly and clearly expressed", "example": "Keep your answers succinct."},
+    {"word": "tacit", "definition": "understood without being stated", "example": "They had a tacit agreement."},
+    {"word": "unequivocal", "definition": "leaving no doubt; clear", "example": "Her answer was unequivocal."},
+    {"word": "venerate", "definition": "regard with great respect", "example": "He is venerated as a hero."},
+    {"word": "warrant", "definition": "justify or necessitate", "example": "The situation warrants investigation."},
+    {"word": "zealous", "definition": "showing great enthusiasm", "example": "She was zealous in her efforts."},
+    {"word": "ameliorate", "definition": "make something bad better", "example": "Steps were taken to ameliorate conditions."},
+    {"word": "blatant", "definition": "done openly; obvious", "example": "It was a blatant lie."},
+    {"word": "cryptic", "definition": "having hidden meaning; mysterious", "example": "She left a cryptic message."},
+    {"word": "debunk", "definition": "expose falseness of an idea", "example": "Scientists debunked the myth."},
+    {"word": "elicit", "definition": "draw out a response", "example": "The question elicited laughter."},
+    {"word": "foster", "definition": "encourage the development of", "example": "We want to foster creativity."},
     
-    # Phrases & Idioms (C1-C2)
-    {"word": "a double-edged sword", "definition": "something with both positive and negative effects", "example": "Social media is a double-edged sword—it connects but also isolates."},
-    {"word": "the elephant in the room", "definition": "an obvious problem no one wants to discuss", "example": "His poor performance was the elephant in the room during the meeting."},
-    {"word": "to play devil's advocate", "definition": "to argue against something for the sake of debate", "example": "Let me play devil's advocate here—what if the plan fails?"},
-    {"word": "to turn a blind eye", "definition": "to deliberately ignore something", "example": "Management turned a blind eye to the safety violations."},
-    {"word": "to be on the same wavelength", "definition": "to think similarly; to understand each other well", "example": "We were on the same wavelength from the very first meeting."},
-    {"word": "to bite off more than you can chew", "definition": "to take on more responsibility than you can handle", "example": "Taking three courses while working full-time—she bit off more than she could chew."},
-    {"word": "to cut corners", "definition": "to do something in the easiest or cheapest way", "example": "The construction company cut corners, and now the building has structural issues."},
-    {"word": "to be in the same boat", "definition": "to be in the same difficult situation", "example": "We're all in the same boat with these new regulations."},
-    {"word": "a blessing in disguise", "definition": "something that seems bad but turns out good", "example": "Losing that job was a blessing in disguise—it led me to my dream career."},
-    {"word": "food for thought", "definition": "something that warrants serious consideration", "example": "The documentary provided food for thought about our consumption habits."},
+    # Day 6
+    {"word": "gregarious", "definition": "fond of company; sociable", "example": "He's naturally gregarious."},
+    {"word": "hypothetical", "definition": "imagined; not necessarily real", "example": "Let's consider a hypothetical situation."},
+    {"word": "impeccable", "definition": "perfect; flawless", "example": "Her timing was impeccable."},
+    {"word": "jeopardize", "definition": "put at risk", "example": "Don't jeopardize your career."},
+    {"word": "lackadaisical", "definition": "lacking enthusiasm; lazy", "example": "His attitude was lackadaisical."},
+    {"word": "magnanimous", "definition": "generous or forgiving", "example": "She was magnanimous in victory."},
+    {"word": "negligible", "definition": "so small as to be meaningless", "example": "The difference is negligible."},
+    {"word": "oblivious", "definition": "unaware of what's happening", "example": "He was oblivious to the danger."},
+    {"word": "perpetuate", "definition": "make something continue indefinitely", "example": "We shouldn't perpetuate stereotypes."},
+    {"word": "quintessence", "definition": "the perfect example of something", "example": "This dish is the quintessence of Italian cuisine."},
+    {"word": "ramification", "definition": "consequence of an action", "example": "Consider the ramifications carefully."},
+    {"word": "superfluous", "definition": "unnecessary; more than needed", "example": "Remove any superfluous words."},
+    {"word": "transient", "definition": "lasting only a short time", "example": "Fame is often transient."},
+    {"word": "usurp", "definition": "take power illegally or by force", "example": "He tried to usurp the throne."},
+    {"word": "verbose", "definition": "using more words than needed", "example": "His writing style is too verbose."},
     
-    # More Advanced Vocabulary
-    {"word": "acquiesce", "definition": "accept something reluctantly but without protest", "example": "She acquiesced to her parents' wishes and studied medicine."},
-    {"word": "exacerbate", "definition": "make a problem or situation worse", "example": "The lack of communication only exacerbated the conflict."},
-    {"word": "precipitate", "definition": "cause something to happen suddenly or unexpectedly", "example": "The scandal precipitated his resignation."},
-    {"word": "ameliorate", "definition": "make something bad better", "example": "The new policies were designed to ameliorate working conditions."},
-    {"word": "obfuscate", "definition": "make obscure, unclear, or unintelligible", "example": "Politicians often obfuscate the truth with complicated language."},
-    {"word": "galvanize", "definition": "shock or excite into taking action", "example": "The tragedy galvanized the community into demanding change."},
-    {"word": "oscillate", "definition": "move back and forth; waver between positions", "example": "She oscillated between excitement and anxiety about the move."},
-    {"word": "extrapolate", "definition": "extend the application of something to an unknown situation", "example": "We can extrapolate from current trends what the market might look like."},
-    {"word": "inundate", "definition": "overwhelm with things to be dealt with", "example": "After the announcement, we were inundated with applications."},
-    {"word": "disseminate", "definition": "spread information widely", "example": "The organization works to disseminate knowledge about climate change."},
+    # Day 7
+    {"word": "wary", "definition": "feeling cautious about dangers", "example": "Be wary of strangers online."},
+    {"word": "abhor", "definition": "regard with disgust and hatred", "example": "I abhor violence of any kind."},
+    {"word": "benevolent", "definition": "well-meaning and kindly", "example": "A benevolent smile crossed her face."},
+    {"word": "capricious", "definition": "given to sudden changes of mood", "example": "The weather here is capricious."},
+    {"word": "delineate", "definition": "describe or portray precisely", "example": "The report delineates the options clearly."},
+    {"word": "enigmatic", "definition": "difficult to interpret; mysterious", "example": "She gave an enigmatic smile."},
+    {"word": "frivolous", "definition": "not having serious purpose", "example": "Don't waste money on frivolous things."},
+    {"word": "germane", "definition": "relevant to a subject", "example": "That point isn't germane to our discussion."},
+    {"word": "heinous", "definition": "utterly wicked or evil", "example": "It was a heinous crime."},
+    {"word": "impervious", "definition": "not affected by; resistant to", "example": "She seemed impervious to criticism."},
+    {"word": "labyrinthine", "definition": "like a labyrinth; complicated", "example": "The building has labyrinthine corridors."},
+    {"word": "malevolent", "definition": "having evil intentions", "example": "He gave her a malevolent look."},
+    {"word": "nebulous", "definition": "unclear; vague", "example": "His plans remain nebulous."},
+    {"word": "obstinate", "definition": "stubbornly refusing to change", "example": "She was obstinate in her refusal."},
+    {"word": "pernicious", "definition": "having a harmful effect gradually", "example": "The pernicious effects of pollution."},
 ]
-
-
-async def populate_database():
-    """Populate the database with sample vocabulary."""
-    await db.init_database()
-    
-    print("Adding sample C1-C2 vocabulary to database...")
-    word_ids = await db.add_words_bulk(SAMPLE_WORDS)
-    
-    print(f"✅ Added {len(word_ids)} words to the database!")
-    print("\nSample words added:")
-    for i, word_data in enumerate(SAMPLE_WORDS[:10], 1):
-        print(f"  {i}. {word_data['word']}")
-    print(f"  ... and {len(SAMPLE_WORDS) - 10} more!")
-    
-    total = await db.get_word_count()
-    print(f"\n📊 Total words in database: {total}")
-
-
-if __name__ == "__main__":
-    asyncio.run(populate_database())
