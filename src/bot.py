@@ -1,10 +1,10 @@
 """
 Telegram Bot for vocabulary learning with spaced repetition.
 Features:
-- Daily vocabulary from Twitter feed
-- Read confirmation tracking
-- 5-minute reminder notifications until read
-- Memory curve (spaced repetition) scheduling
+- Sends daily vocabulary from Twitter feed
+- Tracks read status with button confirmations
+- Sends reminder notifications every 5 minutes until read
+- Implements memory curve for spaced repetition
 """
 
 import os
@@ -17,445 +17,415 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     Application, 
     CommandHandler, 
-    CallbackQueryHandler, 
-    ContextTypes,
-    MessageHandler,
-    filters
+    CallbackQueryHandler,
+    ContextTypes
 )
-from telegram.constants import ParseMode
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from apscheduler.triggers.interval import IntervalTrigger
 from dotenv import load_dotenv
 
-from database import (
-    init_database, 
-    add_word, 
-    get_words_for_review, 
+from src.database import (
+    init_database,
+    add_word,
+    get_words_for_review,
     get_new_words,
     mark_word_reviewed,
     create_batch,
     mark_batch_read,
     get_unread_batches,
     update_reminder_sent,
-    get_setting,
-    set_setting,
     get_all_words_count,
     get_words_by_stage,
+    get_setting,
+    set_setting,
     ReviewStage
 )
-from twitter_scraper import fetch_and_extract_vocabulary, ExtractedWord
+from src.twitter_scraper import fetch_and_extract_vocabulary
 
 load_dotenv()
 
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
-# Global scheduler
-scheduler: Optional[AsyncIOScheduler] = None
-app: Optional[Application] = None
+# Reminder interval in seconds (5 minutes)
+REMINDER_INTERVAL = 5 * 60
 
 
-def format_word_message(word_data: dict, index: int, total: int, is_review: bool = False) -> str:
-    """Format a single word for display."""
-    review_badge = "🔄 REVIEW" if is_review else "✨ NEW"
-    stage_info = f" (Stage {word_data.get('stage', 0)})" if is_review else ""
+class VocabularyBot:
+    """Main bot class handling all vocabulary learning features."""
     
-    return f"""
-{review_badge}{stage_info} [{index}/{total}]
-
-📚 **{word_data['word']}**
-_{word_data.get('difficulty', 'C1-C2')}_
-
-📖 **Definition:**
-{word_data['definition']}
-
-💬 **Example:**
-_{word_data['example']}_
-
-📌 **Context:**
->{word_data.get('context', 'From your Twitter feed')[:200]}...
-"""
-
-
-def create_vocabulary_message(new_words: list, review_words: list, batch_id: str) -> tuple[str, InlineKeyboardMarkup]:
-    """Create the full vocabulary message with all words."""
+    def __init__(self):
+        self.application: Optional[Application] = None
+        self.reminder_task: Optional[asyncio.Task] = None
+        self.chat_id: Optional[int] = None
     
-    lines = ["🎯 **YOUR DAILY VOCABULARY**\n"]
-    lines.append(f"📅 {datetime.now().strftime('%B %d, %Y')}")
-    lines.append(f"📊 {len(new_words)} new + {len(review_words)} review = {len(new_words) + len(review_words)} words\n")
-    lines.append("─" * 30)
-    
-    # New words section
-    if new_words:
-        lines.append("\n✨ **NEW WORDS**\n")
-        for i, word in enumerate(new_words, 1):
-            lines.append(f"""
-**{i}. {word['word']}** _({word.get('difficulty', 'C1')})_
-   📖 {word['definition']}
-   💬 _{word['example']}_
-""")
-    
-    # Review words section
-    if review_words:
-        lines.append("\n🔄 **REVIEW WORDS** (Memory Curve)\n")
-        for i, word in enumerate(review_words, 1):
-            stage = word.get('stage', 1)
-            stage_emoji = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣"][min(stage-1, 5)]
-            lines.append(f"""
-**{i}. {word['word']}** {stage_emoji}
-   📖 {word['definition']}
-   💬 _{word['example']}_
-""")
-    
-    lines.append("\n─" * 30)
-    lines.append("\n⬇️ **Tap the button below when you've read all words**")
-    
-    # Create "I've read it" button
-    keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("✅ I've read all words", callback_data=f"read_{batch_id}")]
-    ])
-    
-    return "\n".join(lines), keyboard
-
-
-async def send_vocabulary_batch(context: ContextTypes.DEFAULT_TYPE, chat_id: int = None):
-    """Send daily vocabulary batch to user."""
-    if not chat_id:
-        chat_id = CHAT_ID or await get_setting("chat_id")
-    
-    if not chat_id:
-        print("❌ No chat ID configured!")
-        return
-    
-    chat_id = int(chat_id)
-    print(f"📤 Sending vocabulary batch to chat {chat_id}...")
-    
-    # Fetch new vocabulary from Twitter
-    print("🐦 Fetching from Twitter feed...")
-    extracted_words = await fetch_and_extract_vocabulary(word_count=15)
-    
-    # Store new words in database
-    new_words = []
-    for ew in extracted_words:
-        word_id = await add_word(
-            word=ew.word,
-            context=ew.context,
-            definition=ew.definition,
-            example=ew.example
-        )
-        if word_id:
-            new_words.append({
-                "id": word_id,
-                "word": ew.word,
-                "definition": ew.definition,
-                "example": ew.example,
-                "context": ew.context,
-                "difficulty": ew.difficulty
-            })
-    
-    # Get words due for review (memory curve)
-    review_word_objects = await get_words_for_review(limit=10)
-    review_words = [{
-        "id": w.id,
-        "word": w.word,
-        "definition": w.definition or "Definition not available",
-        "example": w.example or "Example not available",
-        "context": w.context or "",
-        "stage": w.review_stage.value
-    } for w in review_word_objects]
-    
-    if not new_words and not review_words:
-        await context.bot.send_message(
-            chat_id=chat_id,
-            text="📭 No new vocabulary today. Check back tomorrow!",
-            parse_mode=ParseMode.MARKDOWN
-        )
-        return
-    
-    # Generate unique batch ID
-    batch_id = str(uuid.uuid4())[:8]
-    
-    # Create and send message
-    message_text, keyboard = create_vocabulary_message(new_words, review_words, batch_id)
-    
-    try:
-        sent_message = await context.bot.send_message(
-            chat_id=chat_id,
-            text=message_text,
-            parse_mode=ParseMode.MARKDOWN,
-            reply_markup=keyboard
-        )
+    async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /start command - register user and show welcome."""
+        chat_id = update.effective_chat.id
+        await set_setting("chat_id", str(chat_id))
+        self.chat_id = chat_id
         
-        # Store batch in database
-        await create_batch(
-            batch_id=batch_id,
-            word_count=len(new_words) + len(review_words),
-            new_count=len(new_words),
-            review_count=len(review_words),
-            message_id=sent_message.message_id
-        )
+        welcome_msg = """🎓 *Welcome to Bottel - Your Vocabulary Coach!*
+
+I'll help you learn advanced English vocabulary (C1-C2) from Twitter using spaced repetition.
+
+*How it works:*
+📚 I'll send you 15 new words/phrases daily
+🔄 Words are reviewed based on the memory curve:
+   • 24 hours → 2-3 days → 1 week → 2 weeks → 1 month
+✅ Tap "I've read this" to confirm
+⏰ If you don't confirm, I'll remind you every 5 minutes
+
+*Commands:*
+/words - Get today's vocabulary now
+/review - Get words due for review
+/stats - See your learning progress
+/fetch - Fetch new words from Twitter
+/help - Show this message
+
+Ready to expand your vocabulary? Use /fetch to get started!"""
         
-        print(f"✅ Sent batch {batch_id} with {len(new_words)} new + {len(review_words)} review words")
+        await update.message.reply_text(welcome_msg, parse_mode="Markdown")
+    
+    async def help_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /help command."""
+        help_text = """📖 *Bottel Commands*
+
+/start - Register and see welcome
+/words - Get today's vocabulary batch
+/review - Get words due for review
+/fetch - Fetch new vocabulary from Twitter
+/stats - View your learning statistics
+/add <word> - Manually add a word
+/help - Show this help message
+
+*How Reading Confirmation Works:*
+When you receive words, tap "✅ I've read this" to confirm. Until you do, I'll send reminders every 5 minutes.
+
+*Memory Curve Schedule:*
+• New → Review after 24 hours
+• Stage 1 → Review after 2-3 days  
+• Stage 2 → Review after 1 week
+• Stage 3 → Review after 2 weeks
+• Stage 4 → Review after 1 month
+• Mastered! 🎉"""
         
-        # Schedule reminder check
-        if scheduler:
-            scheduler.add_job(
-                check_and_remind,
-                trigger=IntervalTrigger(minutes=5),
-                args=[context, chat_id, batch_id],
-                id=f"reminder_{batch_id}",
-                replace_existing=True,
-                max_instances=1
+        await update.message.reply_text(help_text, parse_mode="Markdown")
+    
+    async def fetch_words(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Fetch new vocabulary from Twitter feed."""
+        await update.message.reply_text("🔄 Fetching vocabulary from Twitter... This may take a moment.")
+        
+        try:
+            words = await fetch_and_extract_vocabulary(word_count=15)
+            
+            if not words:
+                await update.message.reply_text(
+                    "❌ Couldn't fetch words. Please check your API keys and try again."
+                )
+                return
+            
+            added_count = 0
+            for word in words:
+                word_id = await add_word(
+                    word=word.word,
+                    context=word.context,
+                    definition=word.definition,
+                    example=word.example
+                )
+                if word_id:
+                    added_count += 1
+            
+            await update.message.reply_text(
+                f"✅ Added {added_count} new words to your learning queue!\n"
+                f"Use /words to see today's vocabulary."
             )
             
-    except Exception as e:
-        print(f"❌ Failed to send message: {e}")
-
-
-async def check_and_remind(context: ContextTypes.DEFAULT_TYPE, chat_id: int, batch_id: str):
-    """Check if batch is read, send reminder if not."""
-    unread = await get_unread_batches()
+        except Exception as e:
+            await update.message.reply_text(f"❌ Error fetching words: {str(e)}")
     
-    for b_id, msg_id, sent_at, reminder_count in unread:
-        if b_id == batch_id:
-            # Still unread - send reminder
-            time_elapsed = datetime.now() - sent_at
-            minutes = int(time_elapsed.total_seconds() / 60)
-            
-            reminder_text = f"""
-⚠️ **REMINDER** ⚠️
-
-You haven't read your vocabulary yet!
-📚 Batch sent {minutes} minutes ago
-
-👆 Please scroll up and read your words, then tap "✅ I've read all words"
-
-_This reminder will repeat every 5 minutes until you confirm._
-"""
-            try:
-                await context.bot.send_message(
-                    chat_id=chat_id,
-                    text=reminder_text,
-                    parse_mode=ParseMode.MARKDOWN,
-                    reply_to_message_id=msg_id
-                )
-                await update_reminder_sent(batch_id)
-                print(f"🔔 Sent reminder #{reminder_count + 1} for batch {batch_id}")
-            except Exception as e:
-                print(f"❌ Failed to send reminder: {e}")
-            
+    async def send_words(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Send today's vocabulary batch (new words)."""
+        chat_id = update.effective_chat.id
+        
+        # Get new words
+        new_words = await get_new_words(limit=15)
+        
+        if not new_words:
+            await update.message.reply_text(
+                "📭 No new words available!\n"
+                "Use /fetch to get vocabulary from Twitter, or /review for words due for review."
+            )
             return
+        
+        # Create batch ID
+        batch_id = f"new_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}"
+        
+        # Format message
+        message = self._format_word_batch(new_words, is_review=False)
+        
+        # Create read confirmation button
+        keyboard = [[InlineKeyboardButton(
+            "✅ I've read this", 
+            callback_data=f"read:{batch_id}"
+        )]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        # Send message
+        sent_msg = await context.bot.send_message(
+            chat_id=chat_id,
+            text=message,
+            parse_mode="Markdown",
+            reply_markup=reply_markup
+        )
+        
+        # Record batch
+        await create_batch(
+            batch_id=batch_id,
+            word_count=len(new_words),
+            new_count=len(new_words),
+            review_count=0,
+            message_id=sent_msg.message_id
+        )
+        
+        # Store word IDs for this batch in context
+        context.bot_data[batch_id] = [w.id for w in new_words]
     
-    # Batch was read - remove the reminder job
-    if scheduler:
-        try:
-            scheduler.remove_job(f"reminder_{batch_id}")
-            print(f"✅ Removed reminder job for batch {batch_id}")
-        except:
-            pass
-
-
-async def handle_read_confirmation(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle when user confirms they've read the words."""
-    query = update.callback_query
-    await query.answer()
+    async def send_review(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Send words due for review."""
+        chat_id = update.effective_chat.id
+        
+        # Get review words
+        review_words = await get_words_for_review(limit=15)
+        
+        if not review_words:
+            await update.message.reply_text(
+                "🎉 No words due for review right now!\n"
+                "Great job staying on top of your learning!"
+            )
+            return
+        
+        # Create batch ID
+        batch_id = f"review_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}"
+        
+        # Format message
+        message = self._format_word_batch(review_words, is_review=True)
+        
+        # Create read confirmation button
+        keyboard = [[InlineKeyboardButton(
+            "✅ I've reviewed this", 
+            callback_data=f"read:{batch_id}"
+        )]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        # Send message
+        sent_msg = await context.bot.send_message(
+            chat_id=chat_id,
+            text=message,
+            parse_mode="Markdown",
+            reply_markup=reply_markup
+        )
+        
+        # Record batch
+        await create_batch(
+            batch_id=batch_id,
+            word_count=len(review_words),
+            new_count=0,
+            review_count=len(review_words),
+            message_id=sent_msg.message_id
+        )
+        
+        # Store word IDs for this batch
+        context.bot_data[batch_id] = [w.id for w in review_words]
     
-    data = query.data
-    if data.startswith("read_"):
-        batch_id = data[5:]
+    def _format_word_batch(self, words, is_review: bool = False) -> str:
+        """Format a batch of words into a nice message."""
+        if is_review:
+            header = "🔄 *REVIEW TIME!*\n\nThese words need reinforcement:\n"
+        else:
+            header = "📚 *TODAY'S VOCABULARY*\n\nNew words to learn:\n"
+        
+        lines = [header, "─" * 25]
+        
+        for i, word in enumerate(words, 1):
+            stage_emoji = self._get_stage_emoji(word.review_stage)
+            lines.append(f"\n*{i}. {word.word}* {stage_emoji}")
+            if word.definition:
+                lines.append(f"📖 {word.definition}")
+            if word.example:
+                lines.append(f"💬 _{word.example}_")
+            if word.context:
+                # Truncate long contexts
+                ctx = word.context[:100] + "..." if len(word.context) > 100 else word.context
+                lines.append(f"🐦 `{ctx}`")
+            lines.append("")
+        
+        lines.append("─" * 25)
+        lines.append(f"\n📊 Total: {len(words)} words")
+        lines.append("👆 *Tap the button below when you've read these!*")
+        
+        return "\n".join(lines)
+    
+    def _get_stage_emoji(self, stage: ReviewStage) -> str:
+        """Get emoji indicator for review stage."""
+        emojis = {
+            ReviewStage.NEW: "🆕",
+            ReviewStage.STAGE_1: "1️⃣",
+            ReviewStage.STAGE_2: "2️⃣",
+            ReviewStage.STAGE_3: "3️⃣",
+            ReviewStage.STAGE_4: "4️⃣",
+            ReviewStage.STAGE_5: "5️⃣",
+            ReviewStage.MASTERED: "🏆"
+        }
+        return emojis.get(stage, "📝")
+    
+    async def handle_read_confirmation(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle when user confirms they've read the words."""
+        query = update.callback_query
+        await query.answer()
+        
+        data = query.data
+        if not data.startswith("read:"):
+            return
+        
+        batch_id = data.replace("read:", "")
         
         # Mark batch as read
         await mark_batch_read(batch_id)
         
-        # Mark all words in this batch as reviewed for memory curve
-        review_words = await get_words_for_review(limit=50)
-        for word in review_words:
-            await mark_word_reviewed(word.id)
+        # Mark all words in batch as reviewed
+        word_ids = context.bot_data.get(batch_id, [])
+        for word_id in word_ids:
+            await mark_word_reviewed(word_id)
         
-        # Remove reminder job
-        if scheduler:
-            try:
-                scheduler.remove_job(f"reminder_{batch_id}")
-            except:
-                pass
-        
-        # Update message
+        # Update message to show it's been read
         await query.edit_message_reply_markup(reply_markup=None)
         
+        # Send confirmation
         await context.bot.send_message(
             chat_id=query.message.chat_id,
-            text="""
-✅ **Great job!** 
+            text="✅ *Great job!* Words marked as reviewed.\n\n"
+                 "I'll remind you to review them again based on the memory curve! 🧠",
+            parse_mode="Markdown"
+        )
+    
+    async def stats_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Show learning statistics."""
+        total_words = await get_all_words_count()
+        stages = await get_words_by_stage()
+        
+        stats_msg = f"""📊 *Your Learning Statistics*
 
-Your words have been marked as read.
+📚 *Total Words:* {total_words}
 
-📈 **Memory Curve Schedule:**
-- These words will come back for review:
-  • Tomorrow (24h) - Stage 1
-  • In 2-3 days - Stage 2  
-  • In 1 week - Stage 3
-  • In 2 weeks - Stage 4
-  • In 1 month - Stage 5
+*Progress by Stage:*
+🆕 New: {stages.get('NEW', 0)}
+1️⃣ Stage 1 (24h): {stages.get('STAGE_1', 0)}
+2️⃣ Stage 2 (2-3d): {stages.get('STAGE_2', 0)}
+3️⃣ Stage 3 (1wk): {stages.get('STAGE_3', 0)}
+4️⃣ Stage 4 (2wk): {stages.get('STAGE_4', 0)}
+5️⃣ Stage 5 (1mo): {stages.get('STAGE_5', 0)}
+🏆 Mastered: {stages.get('MASTERED', 0)}
 
-Keep learning! 🚀
-""",
-            parse_mode=ParseMode.MARKDOWN
+Keep learning! 💪"""
+        
+        await update.message.reply_text(stats_msg, parse_mode="Markdown")
+    
+    async def add_word_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Manually add a word."""
+        if not context.args:
+            await update.message.reply_text(
+                "Usage: /add <word or phrase>\n"
+                "Example: /add beat around the bush"
+            )
+            return
+        
+        word = " ".join(context.args)
+        word_id = await add_word(word=word)
+        
+        if word_id:
+            await update.message.reply_text(f"✅ Added '{word}' to your learning queue!")
+        else:
+            await update.message.reply_text(f"⚠️ '{word}' is already in your vocabulary!")
+    
+    async def reminder_loop(self, app: Application):
+        """Background task to send reminders for unread batches."""
+        while True:
+            try:
+                await asyncio.sleep(REMINDER_INTERVAL)
+                
+                chat_id = await get_setting("chat_id")
+                if not chat_id:
+                    continue
+                
+                unread_batches = await get_unread_batches()
+                
+                for batch_id, message_id, sent_at, reminder_count in unread_batches:
+                    # Check if enough time has passed since sending
+                    time_since_sent = datetime.now() - sent_at
+                    if time_since_sent.total_seconds() < REMINDER_INTERVAL:
+                        continue
+                    
+                    # Send reminder
+                    reminder_msg = (
+                        f"⏰ *Reminder #{reminder_count + 1}*\n\n"
+                        f"You haven't confirmed reading your vocabulary yet!\n"
+                        f"Please review the words above and tap '✅ I've read this'"
+                    )
+                    
+                    await app.bot.send_message(
+                        chat_id=int(chat_id),
+                        text=reminder_msg,
+                        parse_mode="Markdown",
+                        reply_to_message_id=message_id
+                    )
+                    
+                    await update_reminder_sent(batch_id)
+                    print(f"📢 Sent reminder #{reminder_count + 1} for batch {batch_id}")
+                    
+            except Exception as e:
+                print(f"⚠️ Reminder loop error: {e}")
+    
+    async def post_init(self, app: Application):
+        """Post-initialization hook to start background tasks."""
+        # Start reminder loop
+        self.reminder_task = asyncio.create_task(self.reminder_loop(app))
+        print("✅ Reminder loop started")
+    
+    def run(self):
+        """Run the bot."""
+        print("🚀 Starting Bottel...")
+        
+        # Build application
+        self.application = (
+            Application.builder()
+            .token(BOT_TOKEN)
+            .post_init(self.post_init)
+            .build()
         )
         
-        print(f"✅ User confirmed reading batch {batch_id}")
+        # Add handlers
+        self.application.add_handler(CommandHandler("start", self.start))
+        self.application.add_handler(CommandHandler("help", self.help_command))
+        self.application.add_handler(CommandHandler("fetch", self.fetch_words))
+        self.application.add_handler(CommandHandler("words", self.send_words))
+        self.application.add_handler(CommandHandler("review", self.send_review))
+        self.application.add_handler(CommandHandler("stats", self.stats_command))
+        self.application.add_handler(CommandHandler("add", self.add_word_command))
+        self.application.add_handler(CallbackQueryHandler(
+            self.handle_read_confirmation, 
+            pattern="^read:"
+        ))
+        
+        # Run bot
+        print("🤖 Bot is running! Press Ctrl+C to stop.")
+        self.application.run_polling(allowed_updates=Update.ALL_TYPES)
 
 
-async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle /start command."""
-    chat_id = update.effective_chat.id
-    await set_setting("chat_id", str(chat_id))
-    
-    await update.message.reply_text(f"""
-🎓 **Welcome to Bottel - Your Vocabulary Bot!**
-
-I'll help you learn advanced English vocabulary (C1-C2 level) from Twitter feeds using spaced repetition.
-
-**How it works:**
-1. 📚 I send you 15 new words daily from Twitter
-2. ✅ You confirm when you've read them
-3. 🔔 If you don't read, I remind you every 5 minutes
-4. 🔄 Words come back for review based on memory curve:
-   - 24 hours → 2-3 days → 1 week → 2 weeks → 1 month
-
-**Commands:**
-/start - Show this message
-/vocab - Get vocabulary now
-/stats - Show your learning statistics
-/settings - Configure your preferences
-
-Your chat ID: `{chat_id}` (saved automatically)
-
-Ready to learn? Use /vocab to get your first batch!
-""", parse_mode=ParseMode.MARKDOWN)
-
-
-async def cmd_vocab(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle /vocab command - send vocabulary immediately."""
-    chat_id = update.effective_chat.id
-    await update.message.reply_text("🔄 Fetching vocabulary from Twitter... This may take a moment.")
-    await send_vocabulary_batch(context, chat_id)
-
-
-async def cmd_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle /stats command."""
-    total_words = await get_all_words_count()
-    stages = await get_words_by_stage()
-    
-    stats_text = f"""
-📊 **Your Learning Statistics**
-
-📚 **Total words learned:** {total_words}
-
-📈 **By Stage:**
-"""
-    
-    stage_names = {
-        "NEW": "🆕 New (not reviewed)",
-        "STAGE_1": "1️⃣ Stage 1 (24h review)",
-        "STAGE_2": "2️⃣ Stage 2 (2-3 days)",
-        "STAGE_3": "3️⃣ Stage 3 (1 week)",
-        "STAGE_4": "4️⃣ Stage 4 (2 weeks)", 
-        "STAGE_5": "5️⃣ Stage 5 (1 month)",
-        "MASTERED": "🏆 Mastered"
-    }
-    
-    for stage, name in stage_names.items():
-        count = stages.get(stage, 0)
-        stats_text += f"\n{name}: {count}"
-    
-    await update.message.reply_text(stats_text, parse_mode=ParseMode.MARKDOWN)
-
-
-async def cmd_settings(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle /settings command."""
-    chat_id = update.effective_chat.id
-    
-    settings_text = f"""
-⚙️ **Settings**
-
-📍 **Your Chat ID:** `{chat_id}`
-
-🐦 **Twitter Accounts:** 
-Default list includes: TheEconomist, guardian, NYTimes, TheAtlantic, NewYorker, NPR, BBC, FT
-
-To customize, edit the `.env` file or send me a list of Twitter accounts:
-`/accounts @user1 @user2 @user3`
-
-⏰ **Notifications:**
-- Vocabulary sent: On demand (/vocab)
-- Reminders: Every 5 minutes until read
-""" 
-    
-    await update.message.reply_text(settings_text, parse_mode=ParseMode.MARKDOWN)
-
-
-async def cmd_test(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Test command for debugging."""
-    await update.message.reply_text(
-        f"✅ Bot is working!\nChat ID: {update.effective_chat.id}"
-    )
-
-
-def setup_scheduler(application: Application):
-    """Setup APScheduler for periodic tasks."""
-    global scheduler
-    scheduler = AsyncIOScheduler()
-    
-    # Check for unread batches every 5 minutes
-    async def check_all_unread():
-        unread = await get_unread_batches()
-        for batch_id, msg_id, sent_at, count in unread:
-            # Only remind if batch is older than 5 minutes
-            if datetime.now() - sent_at > timedelta(minutes=5):
-                await check_and_remind(
-                    application, 
-                    int(await get_setting("chat_id") or 0),
-                    batch_id
-                )
-    
-    scheduler.start()
-    print("✅ Scheduler started")
-
-
-async def post_init(application: Application):
-    """Post-initialization hook."""
-    await init_database()
-    setup_scheduler(application)
-    print("✅ Bot initialized")
-
-
-def main():
+async def main():
     """Main entry point."""
-    global app
-    
-    if not BOT_TOKEN:
-        print("❌ TELEGRAM_BOT_TOKEN not set!")
-        return
-    
-    print("🚀 Starting Bottel...")
-    
-    # Create application
-    app = Application.builder().token(BOT_TOKEN).post_init(post_init).build()
-    
-    # Add handlers
-    app.add_handler(CommandHandler("start", cmd_start))
-    app.add_handler(CommandHandler("vocab", cmd_vocab))
-    app.add_handler(CommandHandler("stats", cmd_stats))
-    app.add_handler(CommandHandler("settings", cmd_settings))
-    app.add_handler(CommandHandler("test", cmd_test))
-    app.add_handler(CallbackQueryHandler(handle_read_confirmation, pattern="^read_"))
-    
-    print("✅ Handlers registered")
-    print("🤖 Bot is running! Press Ctrl+C to stop.")
-    
-    # Run the bot
-    app.run_polling(allowed_updates=Update.ALL_TYPES)
+    await init_database()
+    bot = VocabularyBot()
+    bot.run()
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
