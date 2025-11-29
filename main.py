@@ -17,7 +17,6 @@ load_dotenv()
 
 from src.database import init_database
 from src.bot import VocabularyBot
-from src.scheduler import VocabularyScheduler
 
 
 async def setup():
@@ -50,17 +49,12 @@ def main():
     # Run setup
     asyncio.run(setup())
     
-    # Create and start scheduler
-    scheduler = VocabularyScheduler(bot_token)
-    scheduler.start()
-    
-    # Run bot (this blocks)
+    # Run bot (this blocks) - scheduler runs inside bot
     bot = VocabularyBot()
     try:
         bot.run()
     except KeyboardInterrupt:
         print("\n👋 Shutting down...")
-        scheduler.stop()
 
 
 if __name__ == "__main__":

@@ -389,11 +389,15 @@ Keep learning! 💪"""
         # Start reminder loop
         self.reminder_task = asyncio.create_task(self.reminder_loop(app))
         print("✅ Reminder loop started")
+        print("🤖 Bot is running! Go to Telegram and message @advanceden_bot")
     
     def run(self):
         """Run the bot."""
         print("🚀 Starting Bottel...")
-        
+        asyncio.run(self._run_async())
+    
+    async def _run_async(self):
+        """Async run method."""
         # Build application
         self.application = (
             Application.builder()
@@ -415,9 +419,15 @@ Keep learning! 💪"""
             pattern="^read:"
         ))
         
-        # Run bot
+        # Run bot with async
         print("🤖 Bot is running! Press Ctrl+C to stop.")
-        self.application.run_polling(allowed_updates=Update.ALL_TYPES)
+        async with self.application:
+            await self.application.start()
+            await self.application.updater.start_polling(allowed_updates=Update.ALL_TYPES)
+            
+            # Keep running until interrupted
+            stop_event = asyncio.Event()
+            await stop_event.wait()
 
 
 async def main():
