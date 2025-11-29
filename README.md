@@ -105,6 +105,34 @@ By default, the bot fetches from these accounts known for rich vocabulary:
 
 You can modify the list in `src/twitter_scraper.py`.
 
+## 🚀 Deploy to Railway (Free)
+
+### Step 1: Push to GitHub
+
+```bash
+git add .
+git commit -m "Initial commit"
+git push origin main
+```
+
+### Step 2: Deploy on Railway
+
+1. Go to [railway.app](https://railway.app) and sign up with GitHub
+2. Click **"New Project"** → **"Deploy from GitHub repo"**
+3. Select your repository
+4. Go to **Variables** tab and add these environment variables:
+
+| Variable | Value |
+|----------|-------|
+| `TELEGRAM_BOT_TOKEN` | `8413539238:AAH8JVrEEFqucl8Opu5bHonjd0sEaERoMNQ` |
+| `GEMINI_API_KEY` | `AIzaSyAFUprxVYsLxnxVxUoK9hgyoKqDlRKO5QM` |
+| `TWITTER_USERNAME` | `fati01saleh@gmail.com` |
+| `TWITTER_PASSWORD` | `Fatimaalisaleh-2001` |
+
+5. Click **Deploy** - done! 🎉
+
+Your bot will now run 24/7 for free.
+
 ## 📝 License
 
 MIT License
