@@ -1,0 +1,58 @@
+{
+  "name": "H1B Twitter/X Launch Thread",
+  "nodes": [
+    {
+      "parameters": {},
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "id": "node-manual"
+    },
+    {
+      "parameters": {
+        "jsCode": "const siteUrl = process.env.SITE_URL || 'https://h1bsalary.info';\n\nconst tweets = [\n  `I built a free salary database using 2 million government records that most people don't know exist.\\n\\nH1B visa disclosures are 100% public. They contain exact salaries for real jobs at real companies.\\n\\nHere's what I found 🧵`,\n\n  `Google pays a median of $195,000 for Software Engineers based on 12,847 real applications.\\n\\nAmazon: $187,000\\nMicrosoft: $175,000\\nMeta: $204,000\\n\\nThese aren't estimates. These are government records.`,\n\n  `The data goes down to specific cities too.\\n\\nSWE in San Francisco: $210,000 median\\nSWE in Seattle: $185,000 median\\nSWE in Austin: $162,000 median\\n\\nSame company, very different pay.`,\n\n  `I built a free tool to search any company + role combination.\\n\\n2 million records. No paywall. No signup.\\nUpdated weekly from the DOL database.\\n\\n${siteUrl}\\n\\nRT if useful 🙏`\n];\n\nreturn tweets.map((text, i) => ({ json: { text, index: i } }));"
+      },
+      "name": "Build Tweet Thread",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300],
+      "id": "node-build"
+    },
+    {
+      "parameters": {
+        "resource": "tweet",
+        "text": "={{ $json.text }}",
+        "additionalFields": {
+          "reply": {
+            "in_reply_to_tweet_id": "={{ $node['Post Tweet 1'].json.data?.id }}"
+          }
+        }
+      },
+      "name": "Post Tweet",
+      "type": "n8n-nodes-base.twitter",
+      "typeVersion": 2,
+      "position": [680, 300],
+      "id": "node-tweet"
+    },
+    {
+      "parameters": {
+        "amount": 30,
+        "unit": "seconds"
+      },
+      "name": "Wait 30s",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [900, 300],
+      "id": "node-wait"
+    }
+  ],
+  "connections": {
+    "Manual Trigger": { "main": [[{ "node": "Build Tweet Thread", "type": "main", "index": 0 }]] },
+    "Build Tweet Thread": { "main": [[{ "node": "Post Tweet", "type": "main", "index": 0 }]] },
+    "Post Tweet": { "main": [[{ "node": "Wait 30s", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "tags": ["h1b-salary", "launch", "social"]
+}

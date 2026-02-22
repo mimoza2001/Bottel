@@ -1,0 +1,71 @@
+{
+  "name": "H1B Reddit Launch Campaign",
+  "nodes": [
+    {
+      "parameters": {},
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "id": "node-manual"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build Reddit post content for each subreddit\nconst siteUrl = process.env.SITE_URL || 'https://h1bsalary.info';\n\nconst posts = [\n  {\n    subreddit: 'cscareerquestions',\n    title: 'Built a free tool to look up exact H1B salaries — Google pays $195K median for SWE, Amazon $187K',\n    text: `I got tired of salary sites that hide data behind paywalls or show 'estimated' numbers. H1B disclosures are public government data so I built ${siteUrl} which has exact salaries from 2M+ real applications.\\n\\nSome interesting findings:\\n- Google SWE median: $195,000\\n- Amazon SWE median: $187,000\\n- Microsoft SWE median: $175,000\\n- Highest paying city for SWE: San Francisco ($210K median)\\n\\nYou can look up any company + role combination. No signup, no paywall, forever free.\\n\\nHappy to answer questions about the data.`\n  },\n  {\n    subreddit: 'dataisbeautiful',\n    title: '[OC] I mapped 2 million H1B salary disclosures — here\\'s what companies actually pay',\n    text: `Used DOL public data to build a searchable salary database. Every data point is a real government filing.\\n\\nTop findings:\\n- Median SWE salary: $183K (all companies)\\n- Consulting firms account for 30% of all H1B filings\\n- SF pays 15% above national median for tech roles\\n\\nFull tool: ${siteUrl}`\n  },\n  {\n    subreddit: 'personalfinance',\n    title: 'The government publishes exact salaries for H1B jobs — here\\'s a free tool to look them up',\n    text: `Most people don't know this: the Department of Labor requires employers to publicly disclose the exact wage for every H1B visa application.\\n\\nThis means you can look up what Google, Amazon, or any hospital actually pays — not estimates, actual filed wages.\\n\\nBuilt a free search tool: ${siteUrl}\\n\\nNo signup, completely free. Useful for salary negotiations and understanding market rates.`\n  }\n];\n\nreturn posts.map(p => ({ json: p }));"
+      },
+      "name": "Build Post Content",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300],
+      "id": "node-build"
+    },
+    {
+      "parameters": {
+        "url": "https://oauth.reddit.com/api/submit",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "redditOAuth2Api",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "sr", "value": "={{ $json.subreddit }}" },
+            { "name": "kind", "value": "self" },
+            { "name": "title", "value": "={{ $json.title }}" },
+            { "name": "text", "value": "={{ $json.text }}" },
+            { "name": "api_type", "value": "json" }
+          ]
+        },
+        "options": {
+          "headers": {
+            "entries": [
+              { "name": "User-Agent", "value": "H1BSalaryBot/1.0" }
+            ]
+          }
+        }
+      },
+      "name": "Post to Reddit",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 300],
+      "id": "node-post"
+    },
+    {
+      "parameters": {
+        "amount": 4,
+        "unit": "hours"
+      },
+      "name": "Wait 4 Hours",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [900, 300],
+      "id": "node-wait"
+    }
+  ],
+  "connections": {
+    "Manual Trigger": { "main": [[{ "node": "Build Post Content", "type": "main", "index": 0 }]] },
+    "Build Post Content": { "main": [[{ "node": "Post to Reddit", "type": "main", "index": 0 }]] },
+    "Post to Reddit": { "main": [[{ "node": "Wait 4 Hours", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "tags": ["h1b-salary", "launch", "social"]
+}

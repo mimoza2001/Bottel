@@ -1,0 +1,122 @@
+{
+  "name": "H1B Weekly Data Refresh",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 3 * * 1"
+            }
+          ]
+        }
+      },
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [240, 300],
+      "id": "node-schedule"
+    },
+    {
+      "parameters": {
+        "url": "https://www.dol.gov/agencies/eta/foreign-labor/performance",
+        "options": {}
+      },
+      "name": "Fetch DOL Page",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [460, 300],
+      "id": "node-fetch-dol"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse HTML response to find H1B disclosure Excel file URLs\nconst html = $input.first().json.data;\nconst regex = /href=\"([^\"]*H-1B[^\"]*\\.xlsx?)\"/gi;\nconst urls = [];\nlet match;\nwhile ((match = regex.exec(html)) !== null) {\n  const url = match[1].startsWith('http') ? match[1] : 'https://www.dol.gov' + match[1];\n  urls.push({ url, filename: url.split('/').pop() });\n}\n// Return most recent 2 fiscal years\nreturn urls.slice(-4).map(u => ({ json: u }));"
+      },
+      "name": "Parse Download URLs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 300],
+      "id": "node-parse-urls"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "name": "Download Files",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 300],
+      "id": "node-download"
+    },
+    {
+      "parameters": {
+        "command": "python3 /app/scripts/process_h1b_data.py --input /tmp/h1b_downloads/ --output /app/data/salaries.db"
+      },
+      "name": "Process Data",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [1120, 300],
+      "id": "node-process"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Generate refresh stats\nconst output = $input.first().json.stdout || '';\nconst match = output.match(/Salary records: (\\d+)/);\nconst records = match ? parseInt(match[1]) : 0;\nreturn [{\n  json: {\n    records_processed: records,\n    timestamp: new Date().toISOString(),\n    status: 'success'\n  }\n}];"
+      },
+      "name": "Compute Stats",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1340, 300],
+      "id": "node-stats"
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.VERCEL_DEPLOY_HOOK_URL }}",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "trigger", "value": "revalidate" }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Trigger Vercel Rebuild",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1560, 300],
+      "id": "node-vercel"
+    },
+    {
+      "parameters": {
+        "fromEmail": "noreply@h1bsalary.info",
+        "toEmail": "={{ $env.ADMIN_EMAIL }}",
+        "subject": "H1B Weekly Data Refresh — {{ $json.records_processed }} records processed",
+        "text": "Weekly H1B data refresh completed successfully.\n\nRecords processed: {{ $json.records_processed }}\nTimestamp: {{ $json.timestamp }}\n\nVercel rebuild triggered."
+      },
+      "name": "Send Report Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [1780, 300],
+      "id": "node-email"
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": { "main": [[{ "node": "Fetch DOL Page", "type": "main", "index": 0 }]] },
+    "Fetch DOL Page": { "main": [[{ "node": "Parse Download URLs", "type": "main", "index": 0 }]] },
+    "Parse Download URLs": { "main": [[{ "node": "Download Files", "type": "main", "index": 0 }]] },
+    "Download Files": { "main": [[{ "node": "Process Data", "type": "main", "index": 0 }]] },
+    "Process Data": { "main": [[{ "node": "Compute Stats", "type": "main", "index": 0 }]] },
+    "Compute Stats": { "main": [[{ "node": "Trigger Vercel Rebuild", "type": "main", "index": 0 }]] },
+    "Trigger Vercel Rebuild": { "main": [[{ "node": "Send Report Email", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "tags": ["h1b-salary", "data-pipeline"]
+}

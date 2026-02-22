@@ -1,0 +1,70 @@
+{
+  "name": "H1B SEO Monitoring Agent",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [{ "field": "cronExpression", "expression": "0 9 * * 0" }]
+        }
+      },
+      "name": "Sunday 9AM Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [240, 300],
+      "id": "node-schedule"
+    },
+    {
+      "parameters": {
+        "url": "https://searchconsole.googleapis.com/v1/sites/{{ $env.GSC_SITE_URL }}/searchAnalytics/query",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSearchConsoleOAuth2Api",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "startDate", "value": "={{ $today.minus({ days: 7 }).toFormat('yyyy-MM-dd') }}" },
+            { "name": "endDate", "value": "={{ $today.toFormat('yyyy-MM-dd') }}" },
+            { "name": "dimensions", "value": "[\"query\", \"page\"]" },
+            { "name": "rowLimit", "value": "100" }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Fetch GSC Data",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [460, 300],
+      "id": "node-gsc"
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = $input.first().json.rows || [];\n\n// Find pages ranking 4-15 (optimization opportunities)\nconst opportunities = rows\n  .filter(r => r.position >= 4 && r.position <= 15 && r.impressions > 100)\n  .sort((a, b) => b.impressions - a.impressions)\n  .slice(0, 20);\n\n// Find high impression / low CTR pages  \nconst lowCtr = rows\n  .filter(r => r.impressions > 500 && r.ctr < 0.03)\n  .sort((a, b) => b.impressions - a.impressions)\n  .slice(0, 10);\n\nconst totalImpressions = rows.reduce((s, r) => s + r.impressions, 0);\nconst totalClicks = rows.reduce((s, r) => s + r.clicks, 0);\n\nreturn [{\n  json: {\n    totalImpressions,\n    totalClicks,\n    avgCtr: totalClicks / Math.max(totalImpressions, 1),\n    opportunities,\n    lowCtr,\n    summary: `Week: ${totalImpressions} impressions, ${totalClicks} clicks, ${(totalClicks/Math.max(totalImpressions,1)*100).toFixed(2)}% CTR`\n  }\n}];"
+      },
+      "name": "Analyze SEO Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 300],
+      "id": "node-analyze"
+    },
+    {
+      "parameters": {
+        "fromEmail": "noreply@h1bsalary.info",
+        "toEmail": "={{ $env.ADMIN_EMAIL }}",
+        "subject": "Weekly SEO Report — {{ $json.summary }}",
+        "text": "SEO Weekly Summary\n==================\n\n{{ $json.summary }}\n\nTop Opportunities (positions 4-15):\n{{ $json.opportunities.map(r => `  - ${r.keys[1]} | Pos ${r.position.toFixed(1)} | ${r.impressions} impressions`).join('\\n') }}\n\nLow CTR Pages (high impressions, low clicks):\n{{ $json.lowCtr.map(r => `  - ${r.keys[0]} | ${r.impressions} impressions | ${(r.ctr*100).toFixed(1)}% CTR`).join('\\n') }}"
+      },
+      "name": "Send SEO Report",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [900, 300],
+      "id": "node-email"
+    }
+  ],
+  "connections": {
+    "Sunday 9AM Trigger": { "main": [[{ "node": "Fetch GSC Data", "type": "main", "index": 0 }]] },
+    "Fetch GSC Data": { "main": [[{ "node": "Analyze SEO Data", "type": "main", "index": 0 }]] },
+    "Analyze SEO Data": { "main": [[{ "node": "Send SEO Report", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "tags": ["h1b-salary", "seo"]
+}
