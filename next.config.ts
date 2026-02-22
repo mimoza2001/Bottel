@@ -1,9 +1,6 @@
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
-  // Optimize for static generation at scale
-  output: 'standalone',
-
   // Compress responses
   compress: true,
 
