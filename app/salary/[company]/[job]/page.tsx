@@ -5,8 +5,7 @@ import Breadcrumb from '@/components/Breadcrumb';
 import SalaryBar from '@/components/SalaryBar';
 import SalaryCard from '@/components/SalaryCard';
 import {
-  getAllEmployers,
-  getAllJobs,
+  getDb,
   getEmployer,
   getJob,
   getSalaryRecord,
@@ -22,18 +21,13 @@ interface Props {
 }
 
 export async function generateStaticParams() {
-  // Generate top combinations sorted by total records
-  const employers = getAllEmployers();
-  const jobs = getAllJobs();
-  const params: { company: string; job: string }[] = [];
-
-  // Top 25 employers × all jobs = up to 500 combinations to start
-  for (const emp of employers.slice(0, 25)) {
-    for (const job of jobs) {
-      params.push({ company: emp.slug, job: job.slug });
-    }
-  }
-  return params;
+  // Only generate pages for combinations that actually exist in the database
+  return getDb()
+    .prepare(
+      `SELECT DISTINCT employer_slug as company, job_slug as job
+       FROM salaries ORDER BY sample_count DESC LIMIT 10000`
+    )
+    .all() as { company: string; job: string }[];
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -49,10 +43,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   return {
     title: `${emp.display_name} ${jobData.display_name} Salary — ${median} Median (2024 H1B Data)`,
-    description: `${emp.display_name} paid a median salary of ${median} to ${jobData.display_name}s based on ${salary?.sample_count.toLocaleString() ?? 'N/A'} H1B visa applications. Salary range: ${p25}–${p75}.`,
+    description: `${emp.display_name} paid a median salary of ${median} to ${jobData.display_name}s based on ${(salary?.sample_count ?? 0).toLocaleString()} H1B visa applications. Salary range: ${p25}–${p75}.`,
     openGraph: {
       title: `${emp.display_name} ${jobData.display_name} Salary — ${median}`,
-      description: `Verified from ${salary?.sample_count.toLocaleString() ?? 'N/A'} H1B applications. Range: ${p25}–${p75}.`,
+      description: `Verified from ${(salary?.sample_count ?? 0).toLocaleString()} H1B applications. Range: ${p25}–${p75}.`,
     },
   };
 }
@@ -116,7 +110,7 @@ export default async function SalaryPage({ params }: Props) {
             {emp.display_name} {jobData.display_name} Salary — H1B Data 2024
           </h1>
           <p className="text-gray-500">
-            Based on {salary.sample_count.toLocaleString()} verified H1B applications
+            Based on {(salary.sample_count ?? 0).toLocaleString()} verified H1B applications
           </p>
         </div>
 
@@ -262,7 +256,7 @@ export default async function SalaryPage({ params }: Props) {
                         {formatSalary(row.p25_salary)} – {formatSalary(row.p75_salary)}
                       </td>
                       <td className="py-3 px-4 text-right text-gray-500">
-                        {row.sample_count.toLocaleString()}
+                        {(row.sample_count ?? 0).toLocaleString()}
                       </td>
                     </tr>
                   ))}
