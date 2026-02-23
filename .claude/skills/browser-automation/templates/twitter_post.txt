@@ -1,0 +1,7 @@
+📊 {SYMBOL} Update — {DATE}
+
+Price: ${PRICE}
+24h Change: {CHANGE}%
+Signal: {SIGNAL}
+
+#crypto #trading #{SYMBOL_TAG}

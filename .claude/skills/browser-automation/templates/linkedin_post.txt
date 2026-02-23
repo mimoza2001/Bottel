@@ -1,0 +1,13 @@
+Market Update — {DATE}
+
+{SYMBOL} is trading at ${PRICE}, a {CHANGE}% move in the last 24 hours.
+
+Key levels to watch:
+- Support: ${SUPPORT}
+- Resistance: ${RESISTANCE}
+
+Current signal: {SIGNAL}
+
+This is automated market analysis, not financial advice.
+
+#Trading #Markets #Finance #{SYMBOL_TAG}
