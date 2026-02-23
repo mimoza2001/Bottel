@@ -1,0 +1,46 @@
+{
+  "mcpServers": {
+    "playwright": {
+      "command": "npx",
+      "args": ["@playwright/mcp@latest"],
+      "description": "Browser automation via Playwright — navigate, click, fill forms, screenshot, scrape",
+      "env": {
+        "PLAYWRIGHT_BROWSERS_PATH": ".playwright-browsers"
+      }
+    },
+    "twitter": {
+      "command": "npx",
+      "args": ["-y", "x-mcp"],
+      "description": "Post tweets, read timeline, search Twitter/X via official API",
+      "env": {
+        "TWITTER_API_KEY": "${TWITTER_API_KEY}",
+        "TWITTER_API_SECRET": "${TWITTER_API_SECRET}",
+        "TWITTER_ACCESS_TOKEN": "${TWITTER_ACCESS_TOKEN}",
+        "TWITTER_ACCESS_TOKEN_SECRET": "${TWITTER_ACCESS_TOKEN_SECRET}",
+        "TWITTER_BEARER_TOKEN": "${TWITTER_BEARER_TOKEN}"
+      }
+    },
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "."],
+      "description": "Read and write files in the project directory"
+    },
+    "memory": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-memory"],
+      "description": "Persistent key-value memory shared across agent sessions"
+    }
+  },
+  "permissions": {
+    "allow": [
+      "Bash(npm:*)",
+      "Bash(npx:*)",
+      "Bash(pip:*)",
+      "Bash(python:*)",
+      "Bash(python3:*)",
+      "Bash(pytest:*)",
+      "Bash(playwright:*)",
+      "Bash(git:*)"
+    ]
+  }
+}

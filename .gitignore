@@ -1,0 +1,47 @@
+# Environment & secrets
+.env
+.env.local
+.env.production
+*.key
+*.pem
+secrets/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+
+# Node
+node_modules/
+.npm/
+*.tsbuildinfo
+
+# Playwright
+.playwright-browsers/
+test-results/
+playwright-report/
+
+# Logs
+*.log
+agent-logs/
+*.log.gz
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
