@@ -911,6 +911,7 @@ class Udemy:
         r = s.get(
             "https://www.udemy.com/join/signup-popup/?locale=en_US&response_type=html&next=https%3A%2F%2Fwww.udemy.com%2Flogout%2F",
             headers={"User-Agent": "okhttp/4.9.2 UdemyAndroid 8.9.2(499) (phone)"},
+            verify=False,
             # headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
             #     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
             #     'Accept-Language': 'en-US,en;q=0.5',
@@ -957,10 +958,12 @@ class Udemy:
             }
         )
         s = cloudscraper.create_scraper(sess=s)
+        s.verify = False
         r = s.post(
             "https://www.udemy.com/join/login-popup/?passwordredirect=True&response_type=json",
             data=data,
             allow_redirects=False,
+            verify=False,
         )
         if r.text.__contains__("returnUrl"):
             client_id = r.cookies.get("client_id") or r.cookies.get("ud_client_id", "")
