@@ -3,3 +3,4 @@ __pycache__/
 *.pyo
 duce.log
 *.log
+.env
