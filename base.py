@@ -960,9 +960,9 @@ class Udemy:
             allow_redirects=False,
         )
         if r.text.__contains__("returnUrl"):
-            self.make_cookies(
-                r.cookies["client_id"], r.cookies["access_token"], csrf_token
-            )
+            client_id = r.cookies.get("client_id") or r.cookies.get("ud_client_id", "")
+            access_token = r.cookies.get("access_token") or r.cookies.get("ud_access_token", "")
+            self.make_cookies(client_id, access_token, csrf_token)
         else:
             login_error = r.json()["error"]["data"]["formErrors"][0]
             if login_error[0] == "Y":
