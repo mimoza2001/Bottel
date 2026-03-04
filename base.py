@@ -13,6 +13,8 @@ from decimal import Decimal
 from html import unescape
 from urllib.parse import parse_qs, unquote, urlparse, urlsplit, urlunparse
 
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 import cloudscraper
 import requests
 import rookiepy
@@ -905,6 +907,7 @@ class Udemy:
         # s = cloudscraper.CloudScraper()
         logger.info("Trying to login with email and password")
         s = requests.session()
+        s.verify = False
         r = s.get(
             "https://www.udemy.com/join/signup-popup/?locale=en_US&response_type=html&next=https%3A%2F%2Fwww.udemy.com%2Flogout%2F",
             headers={"User-Agent": "okhttp/4.9.2 UdemyAndroid 8.9.2(499) (phone)"},
