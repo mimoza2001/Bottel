@@ -4,8 +4,8 @@
 
 set -e
 
-MODEL_REPO="Qwen/Qwen3.5-9B-Instruct-GGUF"
-MODEL_FILE="qwen3.5-9b-instruct-q4_k_m.gguf"
+MODEL_REPO="unsloth/Qwen3.5-9B-GGUF"
+MODEL_FILE="Qwen3.5-9B-Q4_K_M.gguf"
 MODELS_DIR="./models"
 
 echo "=== Qwen3.5-9B Q4_K_M Model Downloader ==="
