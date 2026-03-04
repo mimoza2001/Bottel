@@ -1,0 +1,12 @@
+# Telegram bot
+python-telegram-bot[all]>=20.0
+
+# Udemy Course Enroller core dependencies (from upstream DUCE)
+cloudscraper
+rookiepy
+bs4
+requests
+pyopenssl
+rich
+loguru
+lxml
