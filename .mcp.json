@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "aida": {
+      "command": "/home/user/Bottel/AIDA/backend/venv/bin/python",
+      "args": ["/home/user/Bottel/AIDA/backend/mcp/aida_mcp_server.py"],
+      "env": {
+        "BACKEND_API_URL": "http://localhost:8000/api"
+      }
+    }
+  }
+}
