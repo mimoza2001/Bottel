@@ -37,8 +37,21 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     vim \
     net-tools \
     iputils-ping \
+    # Computer Use – virtual display + desktop control
+    xvfb \
+    x11vnc \
+    xdotool \
+    scrot \
+    xfce4 \
+    xfce4-terminal \
+    dbus-x11 \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
+
+# Environment variables for the virtual display
+ENV DISPLAY=:1
+ENV DISPLAY_WIDTH=1280
+ENV DISPLAY_HEIGHT=800
 
 # Set working directory
 WORKDIR /app
@@ -48,6 +61,9 @@ COPY requirements.txt .
 RUN pip3 install --no-cache-dir --break-system-packages -r requirements.txt
 
 # Copy bot source
-COPY bot.py .
+COPY bot.py computer_use.py ./
 
-CMD ["python3", "bot.py"]
+# Entrypoint: start virtual display then run the bot
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+ENTRYPOINT ["/entrypoint.sh"]

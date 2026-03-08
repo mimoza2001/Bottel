@@ -7,6 +7,7 @@ to test. Unauthorized scanning / exploitation is illegal.
 """
 
 import asyncio
+import base64
 import logging
 import os
 import shlex
@@ -22,6 +23,8 @@ from telegram.ext import (
     MessageHandler,
     filters,
 )
+
+from computer_use import run_computer_use_agent, take_screenshot
 
 # ── Configuration ──────────────────────────────────────────────────────────────
 TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
@@ -97,7 +100,7 @@ async def start(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
         return await deny(update)
     await update.message.reply_text(
         "*Bottel – Kali Cybersecurity Bot*\n\n"
-        "Available commands:\n"
+        "*Security tools:*\n"
         "/nmap `<target>` – Port scan\n"
         "/ping `<host>` – Ping host\n"
         "/whois `<domain>` – WHOIS lookup\n"
@@ -105,7 +108,10 @@ async def start(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
         "/nikto `<url>` – Web vulnerability scan\n"
         "/sqlmap `<url>` – SQL injection test\n"
         "/gobuster `<url>` – Directory brute-force\n"
-        "/hash `<type> <hash>` – Crack hash with John\n"
+        "/hash `<type> <hash>` – Crack hash with John\n\n"
+        "*Desktop control (Claude Opus 4.6):*\n"
+        "/screenshot – Live Kali desktop screenshot\n"
+        "/computeruse `<task>` – Let Claude control the desktop\n\n"
         "/help – Show this message",
         parse_mode="Markdown",
     )
@@ -246,6 +252,60 @@ async def hash_cmd(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     await reply_long(update, result)
 
 
+async def screenshot_cmd(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    """Send a live screenshot of the Kali desktop to the user."""
+    if not authorized(update):
+        return await deny(update)
+    await update.message.reply_text("Taking screenshot of Kali desktop…")
+    try:
+        img_b64 = await take_screenshot()
+        img_bytes = base64.b64decode(img_b64)
+        await update.message.reply_photo(photo=img_bytes, caption="Kali desktop screenshot")
+    except Exception as exc:
+        await update.message.reply_text(f"[!] Screenshot failed: {exc}")
+
+
+async def computeruse_cmd(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    """
+    /computeruse <task>
+    Let Claude control the Kali desktop autonomously to complete a task.
+    Claude Opus 4.6 with computer_20251124 tool — sees and clicks the screen.
+    """
+    if not authorized(update):
+        return await deny(update)
+    if not ctx.args:
+        return await update.message.reply_text(
+            "Usage: /computeruse <task description>\n"
+            "Example: /computeruse Open Firefox and go to example.com"
+        )
+
+    task = " ".join(ctx.args)
+    status_msg = await update.message.reply_text(
+        f"Claude is working on: _{task}_\n\n"
+        "I'll send screenshots as Claude works. This may take a moment…",
+        parse_mode="Markdown",
+    )
+
+    async def forward_screenshot(img_b64: str) -> None:
+        """Send interim screenshot to the Telegram chat."""
+        try:
+            img_bytes = base64.b64decode(img_b64)
+            await update.message.reply_photo(photo=img_bytes, caption="Claude's view")
+        except Exception:
+            pass
+
+    try:
+        final_text = await run_computer_use_agent(task, on_screenshot=forward_screenshot)
+        # Edit the status message with the final result
+        await status_msg.edit_text(
+            f"*Task complete:* _{task}_\n\n{final_text[:3800]}",
+            parse_mode="Markdown",
+        )
+    except Exception as exc:
+        log.exception("Computer use error: %s", exc)
+        await status_msg.edit_text(f"[!] Computer use error: {exc}")
+
+
 async def unknown(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text("Unknown command. Use /help to see available commands.")
 
@@ -264,6 +324,8 @@ def main() -> None:
     app.add_handler(CommandHandler("sqlmap", sqlmap_cmd))
     app.add_handler(CommandHandler("gobuster", gobuster_cmd))
     app.add_handler(CommandHandler("hash", hash_cmd))
+    app.add_handler(CommandHandler("screenshot", screenshot_cmd))
+    app.add_handler(CommandHandler("computeruse", computeruse_cmd))
     app.add_handler(MessageHandler(filters.COMMAND, unknown))
 
     log.info("Bottel Kali bot starting…")
