@@ -1,0 +1,6 @@
+.env
+results/
+wordlists/
+__pycache__/
+*.pyc
+*.pyo
